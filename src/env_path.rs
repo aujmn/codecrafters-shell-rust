@@ -1,7 +1,8 @@
 use std::ffi::OsString;
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 
-pub fn check_exe_in_env_path(exe: &str) -> Option<String> {
+pub fn check_exe_in_env_path(exe: &str) -> Option<PathBuf> {
     if std::env::consts::FAMILY == "windows" {
         todo!() // how?
     }
@@ -17,10 +18,7 @@ pub fn check_exe_in_env_path(exe: &str) -> Option<String> {
         if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
         // todo: check only for user?
         {
-            match path.to_str() {
-                Some(p) => return Some(p.to_string()),
-                None => continue,
-            }
+            return Some(path);
         }
     }
     None

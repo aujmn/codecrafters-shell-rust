@@ -1,6 +1,7 @@
 mod builtin;
 mod env_path;
 
+use builtin::{TypeResult::*, type_handler};
 use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,32 +14,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
 
-        match input.split_once(' ') {
-            None => {
-                if input == "exit" {
-                    break;
+        let mut args = input.split_whitespace();
+        let Some(command) = args.next() else {
+            continue; // ignore empty input
+        };
+        match command {
+            "exit" => {
+                debug_assert!(args.next() == None); // todo: handle exit command with args
+                break;
+            }
+            "echo" => {
+                println!("{}", args.collect::<Vec<&str>>().join(" "));
+                continue;
+            }
+            "type" => {
+                let arg = args.next().unwrap(); // todo: handle type command without exactly one arg
+                println!("{}", type_handler(arg));
+                continue;
+            }
+            _ => {
+                match type_handler(command) {
+                    Builtin(_) => unreachable!(),
+                    Executable {
+                        command,
+                        path_to_command: _,
+                    } => {
+                        let args = args.collect::<Vec<&str>>();
+                        std::process::Command::new(command)
+                            .args(args)
+                            .spawn()?
+                            .wait()?; // todo: any other approach?
+                    }
+                    Unknown(_) => println!("{input}: command not found"),
                 };
             }
-            Some((command, args)) => match command {
-                "echo" => {
-                    if args.contains("  ") {
-                        todo!() // handle multiple whitespaces
-                    }
-                    println!("{args}");
-                    continue;
-                }
-                "type" => {
-                    if args.contains(' ') {
-                        todo!() // handle more than one argument
-                    }
-                    println!("{}", builtin::type_handler(args));
-                    continue;
-                }
-                _ => {}
-            },
         }
-
-        println!("{input}: command not found");
     }
     Ok(())
 }
