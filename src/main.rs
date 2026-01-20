@@ -8,7 +8,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.clear();
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
+
+        if input == "exit" {
+            break;
+        }
+
         println!("{}: command not found", input);
     }
-    // Ok(())
+    Ok(())
 }
