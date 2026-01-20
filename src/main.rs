@@ -11,6 +11,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if input == "exit" {
             break;
+        } else if input.starts_with("echo") {
+            let content = &input[5..]; // todo: handle multiple whitespace separations
+            println!("{}", content);
+            continue;
         }
 
         println!("{}: command not found", input);
