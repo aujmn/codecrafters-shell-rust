@@ -20,17 +20,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         match command {
             "exit" => {
-                debug_assert!(args.next() == None); // todo: handle exit command with args
+                debug_assert!(args.next().is_none()); // todo: handle exit command with args
                 break;
             }
             "echo" => {
                 println!("{}", args.collect::<Vec<&str>>().join(" "));
-                continue;
             }
             "type" => {
                 let arg = args.next().unwrap(); // todo: handle type command without exactly one arg
                 println!("{}", type_handler(arg));
-                continue;
+            }
+            "pwd" => {
+                let dir = std::env::current_dir()?.canonicalize()?; // todo: handle errors
+                println!("{}", dir.display());
             }
             _ => {
                 match type_handler(command) {
@@ -42,8 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let args = args.collect::<Vec<&str>>();
                         std::process::Command::new(command)
                             .args(args)
-                            .spawn()?
-                            .wait()?; // todo: any other approach?
+                            .spawn()? // todo: handle errors
+                            .wait()?; // todo: any other approach besides waiting?
                     }
                     Unknown(_) => println!("{input}: command not found"),
                 };

@@ -2,7 +2,8 @@ use std::{fmt::Display, path::PathBuf};
 
 use crate::env_path::check_exe_in_env_path;
 
-const BUILTIN_KEYWORDS: [&str; 3] = ["exit", "echo", "type"];
+// todo: use a set when this program supports many keywords
+const BUILTIN_KEYWORDS: [&str; 4] = ["exit", "echo", "type", "pwd"];
 
 // pub enum Builtin {
 //     Exit,
@@ -48,12 +49,10 @@ impl Display for TypeResult {
 }
 
 pub fn type_handler(arg: &str) -> TypeResult {
-    if BUILTIN_KEYWORDS.contains(&arg)
-    // todo: use a set when this program supports many keywords
-    {
+    if BUILTIN_KEYWORDS.contains(&arg) {
         TypeResult::Builtin(arg.to_string())
     } else {
-        match check_exe_in_env_path(&arg) {
+        match check_exe_in_env_path(arg) {
             Some(path) => TypeResult::Executable {
                 command: arg.into(),
                 path_to_command: path,
