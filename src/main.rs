@@ -1,11 +1,10 @@
-use std::{
-    collections::HashSet,
-    io::{self, Write},
-};
+mod builtin;
+mod env_path;
+
+use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut input = String::new();
-    let builtin_keywords = HashSet::<&str>::from(["exit", "echo", "type"]);
 
     loop {
         print!("$ ");
@@ -14,28 +13,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
 
-        if input == "exit" {
-            break;
-        } else if let Some((command, content)) = input.split_once(' ')
-            && command == "echo"
-        {
-            if content.contains("  ") {
-                todo!()
+        match input.split_once(' ') {
+            None => {
+                if input == "exit" {
+                    break;
+                };
             }
-            println!("{content}");
-            continue;
-        } else if let Some((command, query)) = input.split_once(' ')
-            && command == "type"
-        {
-            if query.contains(' ') {
-                todo!()
-            }
-            if builtin_keywords.contains(query) {
-                println!("{query} is a shell builtin");
-            } else {
-                println!("{query}: not found");
-            }
-            continue;
+            Some((command, args)) => match command {
+                "echo" => {
+                    if args.contains("  ") {
+                        todo!() // handle multiple whitespaces
+                    }
+                    println!("{args}");
+                    continue;
+                }
+                "type" => {
+                    if args.contains(' ') {
+                        todo!() // handle more than one argument
+                    }
+                    println!("{}", builtin::type_handler(args));
+                    continue;
+                }
+                _ => {}
+            },
         }
 
         println!("{input}: command not found");
