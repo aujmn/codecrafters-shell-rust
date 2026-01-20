@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else if let Some((command, content)) = input.split_once(' ')
             && command == "echo"
         {
-            if content.contains(' ') {
+            if content.contains("  ") {
                 todo!()
             }
             println!("{content}");
