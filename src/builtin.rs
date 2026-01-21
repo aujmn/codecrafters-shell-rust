@@ -1,6 +1,6 @@
 use std::{
     io::{Error, ErrorKind},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use crate::env::check_exe_in_env_path;
