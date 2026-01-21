@@ -19,8 +19,8 @@ fn main() -> io::Result<()> {
         input = input.trim().to_string();
 
         match switcher(&mut input.split_whitespace(), &mut current_dir) {
-            Ok(Some(())) => break Ok(()),
-            Ok(None) => {}
+            Ok(Some(())) => {}
+            Ok(None) => break Ok(()),
             Err(e) => eprintln!("{e}"),
         }
     }
