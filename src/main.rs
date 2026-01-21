@@ -60,7 +60,7 @@ fn switcher<'a>(
             if arg.is_none() || args.next().is_some() {
                 return Err(SwitcherError::Args { command, count: 1 });
             }
-            cd_handler(arg.unwrap(), current_dir)?
+            cd_handler(arg.unwrap(), current_dir)?;
         }
         _ =>
         // "exec"; todo: extract into a handler?
