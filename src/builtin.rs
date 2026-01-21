@@ -51,14 +51,30 @@ pub fn type_handler(arg: &str) -> Result<TypeResult, Error> {
     }
 }
 
-pub fn cd_handler(arg: &str) -> Result<PathBuf, Option<Error>> {
-    let path = Path::new(arg).canonicalize().map_err(|e| match e.kind() {
-        ErrorKind::NotFound | ErrorKind::InvalidInput => None,
-        _ => Some(e),
-    })?;
-    std::fs::read_dir(&path).map_err(|e| match e.kind() {
-        ErrorKind::NotFound | ErrorKind::NotADirectory => None,
-        _ => Some(e),
-    })?;
-    Ok(path)
+pub fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Option<Error> {
+    match current_dir.join(arg).canonicalize() {
+        Ok(path) => {
+            match std::fs::read_dir(&path) // open the directory to check; or use `path.is_dir()`?
+        {
+            Ok(_) => {
+                *current_dir = path;
+                None
+            }
+            Err(e) => match e.kind() {
+                ErrorKind::NotADirectory => {
+                    println!("cd: {}: No such file or directory", arg);
+                    None
+                }
+                _ => Some(e),
+            },
+        }
+        }
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound | ErrorKind::InvalidInput => {
+                println!("cd: {}: No such file or directory", arg);
+                None
+            }
+            _ => Some(e),
+        },
+    }
 }

@@ -64,10 +64,8 @@ fn switcher<'a>(
                 return Err(SwitcherError::Args { command, count: 1 });
             }
             let arg = arg.unwrap();
-            match cd_handler(arg) {
-                Ok(path) => *current_dir = path,
-                Err(None) => println!("cd: {}: No such file or directory", arg),
-                Err(Some(e)) => return Err(e.into()),
+            if let Some(e) = cd_handler(arg, current_dir) {
+                return Err(e.into());
             }
         }
         _ =>
