@@ -1,23 +1,12 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{
+    io::{Error, ErrorKind},
+    path::{Path, PathBuf},
+};
 
-use crate::env_path::check_exe_in_env_path;
+use crate::env::check_exe_in_env_path;
 
-// todo: use a set when this program supports many keywords
-const BUILTIN_KEYWORDS: [&str; 4] = ["exit", "echo", "type", "pwd"];
-
-// pub enum Builtin {
-//     Exit,
-//     Echo,
-//     Type,
-// }
-
-// impl Display for Builtin {
-//     todo!(); // use a third-party crate to help?
-// }
-
-// impl TryFrom<&str> for Builtin {
-//     todo!();
-// }
+// use a set or enum when this program supports many keywords
+const BUILTIN_KEYWORDS: [&str; 5] = ["exit", "echo", "type", "pwd", "cd"];
 
 pub enum TypeResult {
     Builtin(String),
@@ -28,7 +17,7 @@ pub enum TypeResult {
     Unknown(String),
 }
 
-impl Display for TypeResult {
+impl std::fmt::Display for TypeResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TypeResult::Builtin(name) => write!(f, "{name} is a shell builtin"),
@@ -48,16 +37,28 @@ impl Display for TypeResult {
     }
 }
 
-pub fn type_handler(arg: &str) -> TypeResult {
+pub fn type_handler(arg: &str) -> Result<TypeResult, Error> {
     if BUILTIN_KEYWORDS.contains(&arg) {
-        TypeResult::Builtin(arg.to_string())
+        Ok(TypeResult::Builtin(arg.to_string()))
     } else {
-        match check_exe_in_env_path(arg) {
-            Some(path) => TypeResult::Executable {
+        match check_exe_in_env_path(arg)? {
+            Some(path) => Ok(TypeResult::Executable {
                 command: arg.into(),
                 path_to_command: path,
-            },
-            None => TypeResult::Unknown(arg.to_string()),
+            }),
+            None => Ok(TypeResult::Unknown(arg.to_string())),
         }
     }
+}
+
+pub fn cd_handler(arg: &str) -> Result<PathBuf, Option<Error>> {
+    let path = Path::new(arg).canonicalize().map_err(|e| match e.kind() {
+        ErrorKind::NotFound | ErrorKind::InvalidInput => None,
+        _ => Some(e),
+    })?;
+    std::fs::read_dir(&path).map_err(|e| match e.kind() {
+        ErrorKind::NotFound | ErrorKind::NotADirectory => None,
+        _ => Some(e),
+    })?;
+    Ok(path)
 }
