@@ -18,11 +18,7 @@ fn main() -> io::Result<()> {
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
 
-        let mut args = input.split_whitespace();
-        let Some(command) = args.next() else {
-            continue; // ignore empty input
-        };
-        match switcher(command, &mut args, &mut current_dir, &input) {
+        match switcher(&mut input.split_whitespace(), &mut current_dir) {
             Ok(Some(())) => break Ok(()),
             Ok(None) => {}
             Err(e) => eprintln!("{e}"),
@@ -31,17 +27,18 @@ fn main() -> io::Result<()> {
 }
 
 fn switcher<'a>(
-    command: &'a str,
-    args: &mut std::str::SplitWhitespace<'_>,
+    args: &'a mut std::str::SplitWhitespace<'_>,
     current_dir: &mut PathBuf,
-    input: &String,
 ) -> Result<Option<()>, SwitcherError<'a>> {
-    match command {
+    let Some(command) = args.next() else {
+        return Ok(Some(())); // ignore empty input
+    };
+    Ok(Some(match command {
         "exit" => {
             return if args.next().is_some() {
                 Err(SwitcherError::Args { command, count: 0 })
             } else {
-                Ok(Some(())) // exit signal
+                Ok(None) // exit signal
             };
         }
         "echo" => {
@@ -63,13 +60,10 @@ fn switcher<'a>(
             if arg.is_none() || args.next().is_some() {
                 return Err(SwitcherError::Args { command, count: 1 });
             }
-            let arg = arg.unwrap();
-            if let Some(e) = cd_handler(arg, current_dir) {
-                return Err(e.into());
-            }
+            cd_handler(arg.unwrap(), current_dir)?
         }
         _ =>
-        // exec
+        // "exec"; todo: extract into a handler?
         {
             match type_handler(command)? {
                 Builtin(_) => unreachable!(),
@@ -83,11 +77,10 @@ fn switcher<'a>(
                         .spawn()?
                         .wait()?;
                 }
-                Unknown(_) => println!("{input}: command not found"),
+                Unknown(_) => println!("{command}: command not found"),
             };
         }
-    }
-    Ok(None)
+    }))
 }
 
 enum SwitcherError<'a> {

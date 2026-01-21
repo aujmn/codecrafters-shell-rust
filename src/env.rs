@@ -1,8 +1,8 @@
-use std::io::{Error, ErrorKind};
+use std::io::{Error, ErrorKind, Result};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-pub fn check_exe_in_env_path(exe: &str) -> Result<Option<PathBuf>, Error> {
+pub fn check_exe_in_env_path(exe: &str) -> Result<Option<PathBuf>> {
     if std::env::consts::FAMILY == "windows" {
         return Err(Error::other(
             "Windows does not support (UNIX-style) permission checking",

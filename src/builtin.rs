@@ -1,5 +1,5 @@
 use std::{
-    io::{Error, ErrorKind},
+    io::{ErrorKind, Result},
     path::PathBuf,
 };
 
@@ -37,7 +37,7 @@ impl std::fmt::Display for TypeResult {
     }
 }
 
-pub fn type_handler(arg: &str) -> Result<TypeResult, Error> {
+pub fn type_handler(arg: &str) -> Result<TypeResult> {
     if BUILTIN_KEYWORDS.contains(&arg) {
         Ok(TypeResult::Builtin(arg.to_string()))
     } else {
@@ -51,30 +51,29 @@ pub fn type_handler(arg: &str) -> Result<TypeResult, Error> {
     }
 }
 
-pub fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Option<Error> {
-    match current_dir.join(arg).canonicalize() {
-        Ok(path) => {
-            match std::fs::read_dir(&path) // open the directory to check; or use `path.is_dir()`?
-        {
-            Ok(_) => {
-                *current_dir = path;
-                None
-            }
-            Err(e) => match e.kind() {
-                ErrorKind::NotADirectory => {
-                    println!("cd: {}: No such file or directory", arg);
-                    None
-                }
-                _ => Some(e),
-            },
-        }
-        }
-        Err(e) => match e.kind() {
+pub fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Result<()> {
+    current_dir.join(arg).canonicalize().map_or_else(
+        |e| match e.kind() {
             ErrorKind::NotFound | ErrorKind::InvalidInput => {
                 println!("cd: {}: No such file or directory", arg);
-                None
+                Ok(())
             }
-            _ => Some(e),
+            _ => Err(e),
         },
-    }
+        |path|
+            // open the directory to check; or use `path.is_dir()`?
+            std::fs::read_dir(&path).map_or_else(
+                |e| match e.kind() {
+                    ErrorKind::NotADirectory => {
+                        println!("cd: {}: No such file or directory", arg);
+                        Ok(())
+                    }
+                    _ => Err(e),
+                },
+                |_| {
+                    *current_dir = path;
+                    Ok(())
+                },
+            ),
+    )
 }
