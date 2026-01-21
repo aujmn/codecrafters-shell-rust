@@ -26,3 +26,7 @@ pub fn check_exe_in_env_path(exe: &str) -> Result<Option<PathBuf>> {
     }
     Ok(None)
 }
+
+pub fn get_env_home() -> Result<std::ffi::OsString> {
+    std::env::var_os("HOME").ok_or(Error::other("Cannot get HOME"))
+}

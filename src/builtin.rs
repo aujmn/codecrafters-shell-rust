@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::env::check_exe_in_env_path;
+use crate::env::{check_exe_in_env_path, get_env_home};
 
 // use a set or enum when this program supports many keywords
 const BUILTIN_KEYWORDS: [&str; 5] = ["exit", "echo", "type", "pwd", "cd"];
@@ -52,6 +52,10 @@ pub fn type_handler(arg: &str) -> Result<TypeResult> {
 }
 
 pub fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Result<()> {
+    if arg == "~" {
+        *current_dir = get_env_home()?.into();
+        return Ok(());
+    }
     current_dir.join(arg).canonicalize().map_or_else(
         |e| match e.kind() {
             ErrorKind::NotFound | ErrorKind::InvalidInput => {
