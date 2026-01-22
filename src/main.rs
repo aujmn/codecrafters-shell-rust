@@ -8,7 +8,7 @@ use std::{
 };
 
 fn main() -> io::Result<()> {
-    let mut input = String::new();
+    let mut input = String::with_capacity(4096);
     let mut current_dir = std::env::current_dir()?.canonicalize()?; // shouldn't start up
 
     loop {
@@ -17,8 +17,15 @@ fn main() -> io::Result<()> {
         input.clear();
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
+        let input_parsed = match parser(&input) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("{e}");
+                continue;
+            }
+        };
 
-        match switcher(&mut input.split_whitespace(), &mut current_dir) {
+        match switcher(&mut input_parsed.iter(), &mut current_dir) {
             Ok(Some(())) => {}
             Ok(None) => break Ok(()),
             Err(e) => eprintln!("{e}"),
@@ -27,13 +34,13 @@ fn main() -> io::Result<()> {
 }
 
 fn switcher<'a>(
-    args: &'a mut std::str::SplitWhitespace<'_>,
+    args: &mut core::slice::Iter<'a, String>,
     current_dir: &mut PathBuf,
 ) -> Result<Option<()>, SwitcherError<'a>> {
     let Some(command) = args.next() else {
         return Ok(Some(())); // ignore empty input
     };
-    Ok(Some(match command {
+    match command.as_str() {
         "exit" => {
             return if args.next().is_some() {
                 Err(SwitcherError::Args { command, count: 0 })
@@ -42,7 +49,12 @@ fn switcher<'a>(
             };
         }
         "echo" => {
-            println!("{}", args.collect::<Vec<&str>>().join(" "));
+            println!(
+                "{}",
+                args.map(|arg| arg.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
         }
         "type" => {
             let arg = args.next();
@@ -71,7 +83,7 @@ fn switcher<'a>(
                     command,
                     path_to_command: _,
                 } => {
-                    let args = args.collect::<Vec<&str>>();
+                    let args = args.map(|arg| arg.to_string()).collect::<Vec<_>>();
                     std::process::Command::new(command)
                         .args(args)
                         .spawn()?
@@ -80,7 +92,8 @@ fn switcher<'a>(
                 Unknown(_) => println!("{command}: command not found"),
             };
         }
-    }))
+    };
+    Ok(Some(()))
 }
 
 enum SwitcherError<'a> {
@@ -110,5 +123,56 @@ impl<'a> std::fmt::Display for SwitcherError<'a> {
             }
             SwitcherError::Io(e) => e.fmt(f),
         }
+    }
+}
+
+fn parser(input: &str) -> io::Result<Vec<String>> {
+    let mut args = vec![];
+    let mut arg = String::with_capacity(64);
+    let mut between_single_quotes = false;
+    for c in input.chars()
+    // `bytes()` or `chars()`?
+    {
+        if between_single_quotes {
+            if c == '\'' {
+                between_single_quotes = false;
+            } else {
+                arg.push(c);
+            }
+        } else if c.is_whitespace() {
+            if !arg.is_empty() {
+                args.push(arg.clone());
+                arg.clear();
+            }
+        } else if c == '\'' {
+            between_single_quotes = true;
+        } else {
+            arg.push(c);
+        }
+    }
+    if between_single_quotes {
+        Err(io::Error::other("Input contains dangling single quotes"))
+    } else {
+        if !arg.is_empty() {
+            args.push(arg);
+        }
+        Ok(args)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::*;
+
+    #[rstest]
+    #[case("hello    world", vec!["hello", "world"])]
+    #[case("'hello    world'", vec!["hello    world"])]
+    #[case("'hello''world'", vec!["helloworld"])]
+    #[case("hello''world", vec!["helloworld"])]
+    #[case("'' '''' ''", vec![])]
+    fn test_parser(#[case] input: &str, #[case] expected: Vec<&str>) {
+        assert!(parser(&String::from(input)).is_ok());
+        assert_eq!(parser(&String::from(input)).unwrap(), expected);
     }
 }
