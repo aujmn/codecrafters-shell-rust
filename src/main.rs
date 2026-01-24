@@ -1,3 +1,4 @@
+mod args;
 mod builtin;
 mod control;
 mod env;
@@ -14,7 +15,7 @@ fn main() -> io::Result<()> {
         input.clear();
         io::stdin().read_line(&mut input)?;
         input = input.trim().to_string();
-        let input_parsed = match control::parser(&input) {
+        let input_parsed = match args::parser(&input) {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("{e}");
