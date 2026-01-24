@@ -44,6 +44,7 @@ pub(crate) fn parser(input: &str) -> Result<Vec<String>> {
             arg.push(c);
         }
     }
+
     if between_single_quotes {
         Err(Error::other("Input contains dangling single quotes"))
     } else if between_double_quotes {
@@ -85,21 +86,21 @@ pub(crate) mod test {
     }
 
     #[rstest]
-    #[case("\"hello    world\"", vec!["hello    world"])]
-    #[case("\"hello\"\"world\"", vec!["helloworld"])]
-    #[case("\"hello\" \"world\"", vec!["hello", "world"])]
-    #[case("\"shell's test\"", vec!["shell's test"])]
-    #[case("\"\" \"\"\"\" \"\"", vec![])]
+    #[case(r#" "hello    world" "#, vec!["hello    world"])]
+    #[case(r#" "hello""world" "#, vec!["helloworld"])]
+    #[case(r#" "hello" "world" "#, vec!["hello", "world"])]
+    #[case(r#" "shell's test" "#, vec!["shell's test"])]
+    #[case(r#" "" """" "" "#, vec![])]
     fn test_parser_double_quotes(#[case] input: &str, #[case] expected: Vec<&str>) {
         assert!(parser(&String::from(input)).is_ok());
         assert_eq!(parser(&String::from(input)).unwrap(), expected);
     }
 
     #[rstest]
-    #[case("\"")]
-    #[case("\" \"a\" ")]
-    #[case("\"\"\"")]
-    #[case("\"  \" a\" ")]
+    #[case(r#" " "#)]
+    #[case(r#" " "a" "#)]
+    #[case(r#" """ "#)]
+    #[case(r#" "  " a" "#)]
     fn test_parser_double_quotes_error(#[case] input: &str) {
         assert!(
             parser(&String::from(input))
@@ -110,9 +111,9 @@ pub(crate) mod test {
     #[rstest]
     #[case(r#" '"' "#, vec!["\""])]
     #[case(r#" "'" "#, vec!["'"])]
-    #[case("'\"a'\"b\"", vec!["\"ab"])]
-    #[case("\"'a\"'b'", vec!["'ab"])]
-    #[case("\"a\"'b'", vec!["ab"])]
+    #[case(r#" '"a'"b" "#, vec!["\"ab"])]
+    #[case(r#" "'a"'b' "#, vec!["'ab"])]
+    #[case(r#" "a"'b' "#, vec!["ab"])]
     fn test_parser_mixed_quotes(#[case] input: &str, #[case] expected: Vec<&str>) {
         assert!(parser(&String::from(input)).is_ok());
         assert_eq!(parser(&String::from(input)).unwrap(), expected);
