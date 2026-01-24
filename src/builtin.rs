@@ -8,7 +8,7 @@ use crate::env::{check_exe_in_env_path, get_env_home};
 // use a set or enum when this program supports many keywords
 const BUILTIN_KEYWORDS: [&str; 5] = ["exit", "echo", "type", "pwd", "cd"];
 
-pub enum TypeResult {
+pub(crate) enum TypeResult {
     Builtin(String),
     Executable {
         command: PathBuf,
@@ -37,7 +37,7 @@ impl std::fmt::Display for TypeResult {
     }
 }
 
-pub fn type_handler(arg: &str) -> Result<TypeResult> {
+pub(crate) fn type_handler(arg: &str) -> Result<TypeResult> {
     if BUILTIN_KEYWORDS.contains(&arg) {
         Ok(TypeResult::Builtin(arg.to_string()))
     } else {
@@ -51,7 +51,7 @@ pub fn type_handler(arg: &str) -> Result<TypeResult> {
     }
 }
 
-pub fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Result<()> {
+pub(crate) fn cd_handler(arg: &str, current_dir: &mut PathBuf) -> Result<()> {
     if arg == "~" {
         *current_dir = get_env_home()?.into();
         return Ok(());
