@@ -17,7 +17,8 @@ Cargo commands such as `cargo run` and `cargo check` work too.
 
 ## Project caveats
 
-1. CodeCrafters provided tests.
+1. The base stages and first extension do not contain unit tests. This was bad
+development practice.
 1. Much of this implementation is building a command-line interface on top of Rust
 functions on top of (I assume) certain POSIX implementations and binaries. It is not
 an attempt to really build the shell from the bottom up. I've had a lot of help.

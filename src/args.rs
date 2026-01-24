@@ -1,70 +1,100 @@
 use std::io::{Error, Result};
 
+/// Kinds of "scopes" where characters within may be escaped.
+enum Scope {
+    SingleQuotes,
+    DoubleQuotes,
+    Backslash(BackslashScope),
+    None,
+}
+
+/// Kinds of backslash "scopes" where the character following the backslash may
+/// be escaped.
+enum BackslashScope {
+    DoubleQuotes,
+    OutsideQuotes,
+    // backslashes within single quotes are literals themselves
+    // and do not require special treatment
+}
+
 pub(crate) fn parser(input: &str) -> Result<Vec<String>> {
+    use Scope::*;
+
     let mut args = vec![];
     let mut arg = String::with_capacity(64);
-    let mut between_single_quotes = false;
-    let mut between_double_quotes = false;
-    /*
-    this parser currently does not handle cases where backslash is
-    used before newline to indicate further input, e.g.
-    ```
-    $ echo 1\
-    > 2
-    12
-    ```
-    */
-    let mut backslash_escaped = false;
-    // let mut literal_scope: Option<char> = None; // todo: merge related logic?
+    let mut scope = None;
 
-    for c in input.chars()
-    // `bytes()` or `chars()`?
-    {
-        if between_single_quotes {
-            if c == '\'' {
-                between_single_quotes = false;
-            } else {
+    for c in input.chars() {
+        match &scope {
+            SingleQuotes if c == '\'' => scope = None,
+            SingleQuotes => arg.push(c),
+
+            DoubleQuotes if c == '\"' => scope = None,
+            DoubleQuotes if c == '\\' => {
+                scope = Backslash(BackslashScope::DoubleQuotes);
+            }
+            DoubleQuotes => arg.push(c),
+
+            Backslash(BackslashScope::DoubleQuotes) if c == '\"' || c == '\\' => {
                 arg.push(c);
+                scope = DoubleQuotes;
             }
-        } else if between_double_quotes {
-            if c == '\"' {
-                between_double_quotes = false;
-            } else if c == '\\' {
-                todo!()
-            } else {
+            Backslash(BackslashScope::DoubleQuotes) => {
+                /*
+                CodeCrafters: "Within double quotes, a backslash only escapes
+                certain special characters: ", \, $, `, and newline. For all
+                other characters, the backslash is treated literally."
+                This differs from actual shell behavior.
+                */
+                arg.push('\\');
                 arg.push(c);
+                scope = DoubleQuotes;
             }
-        } else if backslash_escaped {
-            arg.push(c);
-            backslash_escaped = false;
-        } else if c.is_whitespace() {
-            // the only time a word is finished (the only time to push `arg`
-            // into `args`) is when it's outside quote scoping and it's
-            // followed by whitespace.
-            if !arg.is_empty() {
-                args.push(arg.clone());
-                arg.clear();
+            Backslash(BackslashScope::OutsideQuotes) => {
+                arg.push(c);
+                scope = None;
             }
-        } else if c == '\\' {
-            backslash_escaped = true;
-        } else if c == '\'' {
-            between_single_quotes = true;
-        } else if c == '"' {
-            between_double_quotes = true;
-        } else {
-            arg.push(c);
+
+            None if c.is_whitespace() => {
+                // the only time a word is finished (the only time to push `arg`
+                // into `args`) is when it's outside quote scoping and it's
+                // followed by whitespace.
+                if !arg.is_empty() {
+                    args.push(arg.clone());
+                    arg.clear();
+                }
+            }
+            None if c == '\\' => scope = Backslash(BackslashScope::OutsideQuotes),
+            None if c == '\'' => scope = SingleQuotes,
+            None if c == '"' => scope = DoubleQuotes,
+            None => arg.push(c),
         }
     }
 
-    if between_single_quotes {
-        Err(Error::other("Input contains dangling single quotes"))
-    } else if between_double_quotes {
-        Err(Error::other("Input contains dangling double quotes"))
-    } else {
-        if !arg.is_empty() {
-            args.push(arg);
+    match scope {
+        SingleQuotes => Err(Error::other("Input contains dangling single quote")),
+        DoubleQuotes => Err(Error::other("Input contains dangling double quote")),
+        Backslash(BackslashScope::DoubleQuotes) => Err(Error::other(
+            "Input contains dangling double quote before backslash",
+        )),
+        Backslash(BackslashScope::OutsideQuotes) => {
+            /*
+            this parser currently does not handle cases where backslash is
+            used before newline to indicate further input, e.g.
+            ```
+            $ echo 1\
+            > 2
+            12
+            ```
+            */
+            Err(Error::other("Unsupported input: backslash at line end"))
         }
-        Ok(args)
+        None => {
+            if !arg.is_empty() {
+                args.push(arg);
+            }
+            Ok(args)
+        }
     }
 }
 
@@ -97,7 +127,7 @@ pub(crate) mod test {
             fn error(#[case] input: &str) {
                 assert!(
                     parser(&String::from(input))
-                        .is_err_and(|e| e.to_string() == "Input contains dangling single quotes")
+                        .is_err_and(|e| e.to_string() == "Input contains dangling single quote")
                 );
             }
         }
@@ -121,10 +151,14 @@ pub(crate) mod test {
             #[case(r#" " "a" "#)]
             #[case(r#" """ "#)]
             #[case(r#" "  " a" "#)]
+            #[case(r#" "\ "#)]
+            #[case(r#" "\\"#)]
+            #[case(r#" "\""#)]
+            #[case(r#" "\a"#)]
             fn error(#[case] input: &str) {
                 assert!(
                     parser(&String::from(input))
-                        .is_err_and(|e| e.to_string() == "Input contains dangling double quotes")
+                        .is_err_and(|e| e.to_string() == "Input contains dangling double quote")
                 );
             }
         }
@@ -169,10 +203,35 @@ pub(crate) mod test {
                     assert_eq!(parser(&String::from(input)).unwrap(), expected);
                 }
 
-                // #[rstest]
-                // fn error(#[case] input: &str) {
-                //     assert!(parser(&String::from(input)).is_err());
-                // }
+                #[rstest]
+                #[case(r"a''b c\")]
+                fn error(#[case] input: &str) {
+                    assert!(parser(&String::from(input)).is_err_and(|e| {
+                        e.to_string() == "Unsupported input: backslash at line end"
+                    }));
+                }
+            }
+
+            mod double_quotes {
+                use super::*;
+
+                #[rstest]
+                #[case(r#" "A \\ escapes itself" "#, vec![r"A \ escapes itself"])]
+                #[case(r#" "A \" inside double quotes" "#, vec![r#"A " inside double quotes"#])]
+                #[case(r#" "just'one'\\n'backslash" "#, vec![r#"just'one'\n'backslash"#])]
+                #[case(r#" "inside\"literal_quote."outside\" "#, vec![r#"inside"literal_quote.outside""#])]
+                fn success(#[case] input: &str, #[case] expected: Vec<&str>) {
+                    assert!(parser(&String::from(input)).is_ok());
+                    assert_eq!(parser(&String::from(input)).unwrap(), expected);
+                }
+
+                #[rstest]
+                #[case(r#" "a"'b'"\"#)]
+                fn error(#[case] input: &str) {
+                    assert!(parser(&String::from(input)).is_err_and(|e| {
+                        e.to_string() == "Input contains dangling double quote before backslash"
+                    }));
+                }
             }
         }
     }
